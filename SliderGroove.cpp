@@ -29,8 +29,11 @@ bool SliderGroove::sceneEventFilter(QGraphicsItem *watched, QEvent *event) {
             return true;
         } else if (event->type() == QEvent::GraphicsSceneContextMenu) {
             // Context menu event.
-            handles.removeOne(handle);
-            delete handle;
+            if (handles.size() > 1) {
+                handle->removeSceneEventFilter(this);
+                handles.removeOne(handle);
+                delete handle;
+            }
 
             return true;
         }
@@ -85,9 +88,9 @@ bool SliderGroove::canHandleMove(SliderHandle *handle, QPointF pos) {
     int mx = getWidth() / 2;
     int hx = handle->pos().x();
     int index = handles.indexOf(handle);
-    int deltaX = pos.x() - handle->pos().x(); // Judge of moving left or moving right.
+    bool moveLeft = pos.x() - handle->pos().x() < 0; // Judge of moving left or moving right.
 
-    return (deltaX < 0) ?
+    return moveLeft ?
            ((index == 0) ?                  (hx > -mx) : (hx > handles[index - 1]->pos().x() + handleGap)):
            ((index == handles.size() - 1) ? (hx < +mx) : (hx < handles[index + 1]->pos().x() - handleGap));
 }
