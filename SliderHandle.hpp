@@ -1,11 +1,16 @@
 #ifndef SLIDERHANDLE_HPP
 #define SLIDERHANDLE_HPP
 
-#include <QGraphicsItem>
+#include <QGraphicsObject>
 
-class SliderHandle : public QGraphicsItem  {
+class QMenu;
+class QAction;
+
+class SliderHandle : public QGraphicsObject  {
+    Q_OBJECT
 public:
-    explicit SliderHandle(QSize size);
+    explicit SliderHandle(QSize size, bool mark = false);
+    ~SliderHandle();
 
     enum { Type = UserType + 1 };
 
@@ -34,6 +39,11 @@ public:
      */
     QSize getSize() const;
 
+    bool isMark() const;
+    void setMark(bool mark);
+
+    bool isMovable() const;
+
     /**
      * @brief Set the handle's size.
      * @param size An object of QSize.
@@ -45,10 +55,25 @@ public:
     virtual QPainterPath shape() const;
     virtual void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
 
+public slots:
+    void setMovable(bool movable);
+    void deleteHandle();
+
+signals:
+    void handleShouldBeDeleted(SliderHandle *handle);
+
+protected:
+    virtual void contextMenuEvent(QGraphicsSceneContextMenuEvent *event);
+
 private:
     QSize  size;
-    qreal normalizedX;
+    bool   mark;
+    bool   movable;
+    qreal  normalizedX;
 
+    QMenu   *menu;
+    QAction *deleteAction;
+    QAction *toggleMovableAction;
 };
 
 #endif // SLIDERHANDLE_HPP

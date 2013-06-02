@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>461</width>
+    <width>562</width>
     <height>111</height>
    </rect>
   </property>
@@ -25,15 +25,29 @@
 }</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0">
-    <widget class="Slider" name="slider" native="true"/>
-   </item>
    <item row="1" column="0">
-    <widget class="QPushButton" name="pushButton">
+    <widget class="QPushButton" name="printButton">
      <property name="text">
       <string>Print the slider's values</string>
      </property>
     </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QPushButton" name="hideButton">
+     <property name="text">
+      <string>Hide selected mark handle</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="2">
+    <widget class="QPushButton" name="showButton">
+     <property name="text">
+      <string>Show all handles</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0" colspan="3">
+    <widget class="Slider" name="slider" native="true"/>
    </item>
   </layout>
  </widget>

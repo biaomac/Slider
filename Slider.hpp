@@ -34,13 +34,19 @@ public:
      * @brief Set the handle's size.
      * @param size - An QSize object.
      */
-    void setHandleSize(QSize size);
+    void setRoundHandleSize(QSize size);
 
     /**
      * @brief Get the size of handle.
      * @return An QSize object.
      */
-    QSize getHandleSize() const;
+    QSize getRoundHandleSize() const;
+
+    void setMarkHandleSize(QSize size);
+    QSize getMarkHandleSize() const;
+
+    void hideSelectedHandles();
+    void showAllHandles();
 
 protected:
     /**

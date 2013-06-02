@@ -16,6 +16,8 @@ public:
 
 private slots:
     void printSliderValues();
+    void hideSelectedHandles();
+    void showAllHandles();
 
 private:
     Ui::Widget *ui;

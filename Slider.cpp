@@ -4,6 +4,7 @@
 
 #include <QResizeEvent>
 #include <QGraphicsScene>
+#include <QList>
 #include <QDebug>
 
 Slider::Slider(QWidget *parent) : QGraphicsView(parent) {
@@ -17,7 +18,7 @@ Slider::Slider(QWidget *parent) : QGraphicsView(parent) {
     scene->addItem(groove);
 
     groove->setPos(0, 0);
-    groove->insertHandleAt(0.5);
+    groove->insertHandleAt(0.5, false);
 }
 
 void Slider::resizeEvent(QResizeEvent *event) {
@@ -43,14 +44,41 @@ void Slider::setMargins(QMargins margins) {
     this->margins = margins;
 }
 
-void Slider::setHandleSize(QSize size) {
-    groove->setHandleSize(size);
+void Slider::setRoundHandleSize(QSize size) {
+    groove->setRoundHandleSize(size);
 }
 
-QSize Slider::getHandleSize() const {
-    return groove->getHandleSize();
+QSize Slider::getRoundHandleSize() const {
+    return groove->getRoundHandleSize();
 }
 
 QList<int> Slider::getValues() const {
     return groove->getHandleValues();
+}
+
+void Slider::setMarkHandleSize(QSize size) {
+    return groove->setMarkHandleSize(size);
+}
+
+QSize Slider::getMarkHandleSize() const {
+    return groove->getMarkHandleSize();
+}
+
+void Slider::hideSelectedHandles() {
+    QList<QGraphicsItem *> items = scene->selectedItems();
+
+    foreach (QGraphicsItem *i, items) {
+        SliderHandle *handle = dynamic_cast<SliderHandle *>(i);
+        if (handle->isMark() && handle->type() == SliderHandle::Type) {
+            handle->hide();
+        }
+    }
+}
+
+void Slider::showAllHandles() {
+    QList<QGraphicsItem *> items = scene->items();
+
+    foreach (QGraphicsItem *i, items) {
+        i->show();
+    }
 }

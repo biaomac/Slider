@@ -2,15 +2,17 @@
 #include "SliderHandle.hpp"
 #include <QGraphicsSceneMouseEvent>
 #include <QPainter>
+#include <QDebug>
 
 SliderGroove::SliderGroove(QGraphicsItem *parent) : QGraphicsRectItem(parent) {
     handleGap = 3;
 }
 
-void SliderGroove::mouseDoubleClickEvent(QGraphicsSceneMouseEvent * event) {
-    SliderHandle *handle = new SliderHandle(handleSize);
-    handle->setPos(QPointF(event->pos().x(), 0));
-    insertHandle(handle);
+SliderGroove::~SliderGroove() {
+}
+
+void SliderGroove::contextMenuEvent(QGraphicsSceneContextMenuEvent * event) {
+    insertHandleAt(normalizHandleX(event->pos().x()), true);
 }
 
 bool SliderGroove::sceneEventFilter(QGraphicsItem *watched, QEvent *event) {
@@ -22,17 +24,8 @@ bool SliderGroove::sceneEventFilter(QGraphicsItem *watched, QEvent *event) {
             QGraphicsSceneMouseEvent *e = dynamic_cast<QGraphicsSceneMouseEvent *>(event);
             QPointF newPos = handle->mapToParent(e->pos());
 
-            if (canHandleMove(handle, newPos)) {
+            if (canMoveHandle(handle, newPos)) {
                 moveHandle(handle, newPos);
-            }
-
-            return true;
-        } else if (event->type() == QEvent::GraphicsSceneContextMenu) {
-            // Context menu event.
-            if (handles.size() > 1) {
-                handle->removeSceneEventFilter(this);
-                handles.removeOne(handle);
-                delete handle;
             }
 
             return true;
@@ -42,10 +35,18 @@ bool SliderGroove::sceneEventFilter(QGraphicsItem *watched, QEvent *event) {
     return QGraphicsRectItem::sceneEventFilter(watched, event);
 }
 
+void SliderGroove::deleteHandle(SliderHandle *handle) {
+    handle->removeSceneEventFilter(this);
+    handles.removeOne(handle);
+    delete handle;
+}
+
 void SliderGroove::insertHandle(SliderHandle *handle) {
     handle->setParentItem(this);
     handle->installSceneEventFilter(this);
-    handle->setNormalizedX(normalizHandleX(handle));
+    handle->setNormalizedX(normalizHandleX(handle->pos().x()));
+
+    connect(handle, SIGNAL(handleShouldBeDeleted(SliderHandle*)), this, SLOT(deleteHandle(SliderHandle*)));
 
     int index = 0;
 
@@ -62,78 +63,152 @@ void SliderGroove::insertHandle(SliderHandle *handle) {
     for (int i = 0; i < handles.size(); ++i) {
         handles[i]->setZValue(i);
     }
+
+    updateHandles();
 }
 
-void SliderGroove::insertHandleAt(qreal normalizedX) {
-    SliderHandle *handle = new SliderHandle(handleSize);
+void SliderGroove::insertHandleAt(qreal normalizedX, bool markHandle) {
+    SliderHandle *handle = new SliderHandle(markHandle ? markHandleSize : roundHandleSize, markHandle);
     handle->setNormalizedX(normalizedX);
 
-    int x = getWidth() * handle->getNormalizedX() - getWidth() / 2;
+    int w = getSize().width();
+    int x = w * handle->getNormalizedX() - w / 2;
     handle->setPos(QPointF(x, 0));
     insertHandle(handle);
 }
 
-qreal SliderGroove::getWidth() const {
-    return (shape().boundingRect()).width();
+QSizeF SliderGroove::getSize() const {
+    return (shape().boundingRect()).size();
 }
 
-qreal SliderGroove::normalizHandleX(SliderHandle *handle) const {
-    qreal w = getWidth();
-    qreal tp = handle->pos().x() + w / 2;
+qreal SliderGroove::normalizHandleX(qreal x) const {
+    qreal w = getSize().width();
 
-    return tp / w;
+    return (x + w / 2) / w;
 }
 
-bool SliderGroove::canHandleMove(SliderHandle *handle, QPointF pos) {
-    int mx = getWidth() / 2;
+bool SliderGroove::canMoveHandle(SliderHandle *handle, QPointF pos) const {
+    if (!handle->isMovable()) { return false; }
+
+    return handle->isMark() ? canMoveMarkHandle(handle, pos) : canMoveRoundHandle(handle, pos);
+}
+
+bool SliderGroove::canMoveMarkHandle(SliderHandle *handle, QPointF pos) const {
+    int mx = getSize().width() / 2;
     int hx = handle->pos().x();
-    int index = handles.indexOf(handle);
     bool moveLeft = pos.x() - handle->pos().x() < 0; // Judge of moving left or moving right.
 
+    int prevIndex = findPreviousHandleIndex(handle, true);
+    int nextIndex = findNextHandleIndex(handle, true);
+    bool isFirst = prevIndex == -1;
+    bool isLast  = nextIndex == -1;
+
     return moveLeft ?
-           ((index == 0) ?                  (hx > -mx) : (hx > handles[index - 1]->pos().x() + handleGap)):
-           ((index == handles.size() - 1) ? (hx < +mx) : (hx < handles[index + 1]->pos().x() - handleGap));
+           (isFirst ? (hx > -mx) : (hx > handles[prevIndex]->pos().x() + handleGap)):
+           (isLast  ? (hx < +mx) : (hx < handles[nextIndex]->pos().x() - handleGap));
+}
+
+bool SliderGroove::canMoveRoundHandle(SliderHandle *handle, QPointF pos) const {
+    int mx = getSize().width() / 2;
+    int hx = handle->pos().x();
+    bool moveLeft = pos.x() - handle->pos().x() < 0; // Judge of moving left or moving right.
+
+    return moveLeft ? (hx > -mx ? true : false) : (hx < +mx ? true : false);
 }
 
 void SliderGroove::moveHandle(SliderHandle *handle, QPointF pos) {
-    int w2 = getWidth() / 2;
+    if (handle->isMark()) {
+        moveMarkHandle(handle, pos);
+    } else {
+        moveRoundHandle(handle, pos);
+    }
+}
+
+void SliderGroove::moveRoundHandle(SliderHandle *handle, QPointF pos) {
+    int w2 = getSize().width() / 2;
     int x = pos.x();
     x = x < -w2 ? -w2 : x;
     x = x > +w2 ? +w2 : x;
 
+    handle->setPos(x, handle->pos().y());
+    handle->setNormalizedX(normalizHandleX(handle->pos().x()));
+}
+
+void SliderGroove::moveMarkHandle(SliderHandle *handle, QPointF pos) {
+    int w2 = getSize().width() / 2;
+    int x = pos.x();
+    x = x < -w2 ? -w2 : x;
+    x = x > +w2 ? +w2 : x;
+
+    int prevIndex = findPreviousHandleIndex(handle, true);
+    int nextIndex = findNextHandleIndex(handle, true);
+    bool isFirst = prevIndex == -1;
+    bool isLast  = nextIndex == -1;
+
+    if (!isFirst) {
+        int prevX = handles[prevIndex]->pos().x() + handleGap;
+        x = x <= prevX ? prevX : x;
+    }
+
+    if (!isLast) {
+        int nextX = handles[nextIndex]->pos().x() - handleGap;
+        x = x >= nextX ? nextX : x;
+    }
+
+    handle->setPos(x, handle->pos().y());
+    handle->setNormalizedX(normalizHandleX(handle->pos().x()));
+}
+
+int SliderGroove::findPreviousHandleIndex(SliderHandle *handle, bool markHandle) const {
     int index = handles.indexOf(handle);
 
-    if (index > 0) {
-        int prevX = handles[index - 1]->pos().x();
-        x = x <= prevX + handleGap ? prevX + handleGap : x;
+    for (int i = index - 1; i >= 0; --i) {
+        if (handles[i]->isMark() == markHandle) {
+            return i;
+        }
     }
 
-    if (index < handles.size() - 1) {
-        int nextX = handles[index + 1]->pos().x();
-        x = x >= nextX - handleGap ? nextX - handleGap : x;
+    return -1;
+}
+
+int SliderGroove::findNextHandleIndex(SliderHandle *handle, bool markHandle) const {
+    int index = handles.indexOf(handle);
+
+    for (int i = index + 1; i < handles.size(); ++i) {
+        if (handles[i]->isMark() == markHandle) {
+            return i;
+        }
     }
 
-    handle->setPos(x, 0);
-    handle->setNormalizedX(normalizHandleX(handle));
+    return -1;
 }
 
 void SliderGroove::updateHandles() {
-    qreal w = getWidth();
+    qreal w = getSize().width();
+    qreal h = getSize().height();
     qreal x = 0;
 
-    foreach (SliderHandle *h, handles) {
-        x = h->getNormalizedX() * w - w / 2;
-        h->setPos(x, 0);
-        h->setSize(handleSize);
+    foreach (SliderHandle *handle, handles) {
+        x = handle->getNormalizedX() * w - w / 2;
+        handle->setPos(x, handle->isMark() ? h / 2 : 0);
+        handle->setSize(handle->isMark() ? markHandleSize : roundHandleSize);
     }
 }
 
-void SliderGroove::setHandleSize(QSize size) {
-    this->handleSize = size;
+void SliderGroove::setRoundHandleSize(QSize size) {
+    this->roundHandleSize = size;
 }
 
-QSize SliderGroove::getHandleSize() const {
-    return this->handleSize;
+QSize SliderGroove::getRoundHandleSize() const {
+    return this->roundHandleSize;
+}
+
+void SliderGroove::setMarkHandleSize(QSize size) {
+    this->markHandleSize = size;
+}
+
+QSize SliderGroove::getMarkHandleSize() const {
+    return this->markHandleSize;
 }
 
 QList<int> SliderGroove::getHandleValues() const {

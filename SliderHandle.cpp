@@ -1,11 +1,29 @@
 #include "SliderHandle.hpp"
 #include <QPainter>
 #include <QPainterPath>
+#include <QGraphicsSceneContextMenuEvent>
 
-SliderHandle::SliderHandle(QSize size) {
+#include <QAction>
+#include <QMenu>
+
+SliderHandle::SliderHandle(QSize size, bool mark) {
     this->size = size;
+    this->mark = mark;
 
-    setFlags(QGraphicsItem::ItemIsMovable | QGraphicsItem::ItemIsSelectable);
+    this->setFlags(QGraphicsItem::ItemIsMovable | QGraphicsItem::ItemIsSelectable);
+
+    menu = new QMenu();
+    deleteAction = menu->addAction("Delete");
+    toggleMovableAction = menu->addAction("Toggle movable");
+    toggleMovableAction->setCheckable(true);
+
+    setMovable(true);
+
+    connect(deleteAction, SIGNAL(triggered()), this, SLOT(deleteHandle()));
+    connect(toggleMovableAction, SIGNAL(toggled(bool)), this, SLOT(setMovable(bool)));
+}
+
+SliderHandle::~SliderHandle() {
 }
 
 QRectF SliderHandle::boundingRect() const {
@@ -38,12 +56,46 @@ void SliderHandle::setSize(QSize size) {
     this->size = size;
 }
 
+bool SliderHandle::isMark() const {
+    return mark;
+}
+
+void SliderHandle::setMark(bool mark) {
+    this->mark = mark;
+}
+
+bool SliderHandle::isMovable() const {
+    return this->movable;
+}
+
+void SliderHandle::setMovable(bool movable) {
+    this->movable = movable;
+    this->toggleMovableAction->setChecked(movable);
+}
+
+void SliderHandle::deleteHandle() {
+    emit handleShouldBeDeleted(this);
+}
+
+void SliderHandle::contextMenuEvent(QGraphicsSceneContextMenuEvent *event) {
+    if (isMark()) {
+        menu->popup(event->screenPos());
+    }
+}
+
 QPainterPath SliderHandle::shape() const {
+    QPainterPath path;
     int w = size.width();
     int h = size.height();
 
-    QPainterPath path;
-    path.addRoundedRect(QRectF(-w / 2, -h / 2, w - 1, h - 1), w / 2, h / 2);
+    if (mark) {
+        path.moveTo(0,     -h / 2 - 2);
+        path.lineTo(-w / 2, h / 2 - 2);
+        path.lineTo( w / 2, h / 2 - 2);
+        path.closeSubpath();
+    } else {
+        path.addRoundedRect(QRectF(-w / 2, -h / 2, w - 1, h - 1), w / 2, h / 2);
+    }
 
     return path;
 }

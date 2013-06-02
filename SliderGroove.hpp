@@ -3,16 +3,20 @@
 
 #include <QGraphicsRectItem>
 #include <QList>
+#include <QObject>
 
 class SliderHandle;
 
-class SliderGroove : public QGraphicsRectItem {
+class SliderGroove : public QObject, public QGraphicsRectItem {
+    Q_OBJECT
 public:
     /**
      * @brief Contruct a SliderGroove instance.
      * @param parent
      */
     explicit SliderGroove(QGraphicsItem *parent = 0);
+
+    ~SliderGroove();
 
     /**
      * @brief Get the value of the handles, which are in range of [0, 100].
@@ -21,16 +25,28 @@ public:
     QList<int> getHandleValues() const;
 
     /**
-     * @brief Set the handle's size.
+     * @brief Set the round handle's size.
      * @param size - The size of the handle.
      */
-    void setHandleSize(QSize size);
+    void setRoundHandleSize(QSize size);
 
     /**
-     * @brief Get the handle's size.
+     * @brief Get the round handle's size.
      * @return An QSize object.
      */
-    QSize getHandleSize() const;
+    QSize getRoundHandleSize() const;
+
+    /**
+     * @brief Set the mark handle's size.
+     * @param size - The size of the handle.
+     */
+    void setMarkHandleSize(QSize size);
+
+    /**
+     * @brief Get the mark handle's size.
+     * @return An QSize object.
+     */
+    QSize getMarkHandleSize() const;
 
     /**
      * @brief This method should be invoked when the groove's size is changed.
@@ -41,8 +57,9 @@ public:
      * @brief Insert a handle at the position in the groove area.
      * @param normalizedX - A float value between [0, 1],
      *      the passed value will be clamped if outside the range.
+     * @param markHandle - Indicate whether the handle is mark.
      */
-    void insertHandleAt(qreal normalizedX);
+    void insertHandleAt(qreal normalizedX, bool markHandle);
 
     // +----------------------------------------------------------------------+
     virtual QRectF boundingRect() const;
@@ -50,15 +67,18 @@ public:
     virtual void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
 
 protected:
-    virtual void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event);
+    virtual void contextMenuEvent(QGraphicsSceneContextMenuEvent * event);
     virtual bool sceneEventFilter(QGraphicsItem *watched, QEvent *event);
+
+private slots:
+    void deleteHandle(SliderHandle *handle);
 
 private:
     /**
-     * @brief Get the width of the groove painting area.
-     * @return A float value of the painting width.
+     * @brief Get the size of the groove painting area.
+     * @return An size object of the painting area.
      */
-    qreal getWidth() const;
+    QSizeF getSize() const;
 
     /**
      * @brief Insert the passed handle pointer into the handles list.
@@ -71,7 +91,7 @@ private:
      * @param handle - A pointer of the SliderHandle.
      * @return Return the normalized value in the range of [0, 1].
      */
-    qreal normalizHandleX(SliderHandle *handle) const;
+    qreal normalizHandleX(qreal x) const;
 
     /**
      * @brief To judge whether the handle can move to the new position.
@@ -79,7 +99,9 @@ private:
      * @param pos - The position the handle proposed to move.
      * @return - If can move return true, otherwise return false.
      */
-    bool canHandleMove(SliderHandle *handle, QPointF pos);
+    bool canMoveHandle(SliderHandle *handle, QPointF pos) const;
+    bool canMoveMarkHandle(SliderHandle *handle, QPointF pos) const;
+    bool canMoveRoundHandle(SliderHandle *handle, QPointF pos) const;
 
     /**
      * @brief Move the specivied handle to the passed position.
@@ -87,9 +109,15 @@ private:
      * @param pos - The position the handle will move.
      */
     void moveHandle(SliderHandle *handle, QPointF pos);
+    void moveMarkHandle(SliderHandle *handle, QPointF pos);
+    void moveRoundHandle(SliderHandle *handle, QPointF pos);
+
+    int findPreviousHandleIndex(SliderHandle *handle, bool markHandle) const;
+    int findNextHandleIndex(SliderHandle *handle, bool markHandle) const;
     
     QList<SliderHandle *> handles;
-    QSize handleSize;
+    QSize roundHandleSize;
+    QSize markHandleSize;
     int handleGap;
 };
 
